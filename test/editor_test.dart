@@ -230,16 +230,29 @@ void main() {
       await tester.tap(previewButton);
       await tester.pump();
 
-      // Find and tap the checkbox in preview mode
-      // Note: This is simplified - in a real test you'd need to find the actual
-      // GestureDetector or similar widget that handles taps on checkboxes
-      final checkboxWidget = find.byType(GestureDetector).first;
-      await tester.tap(checkboxWidget);
-      await tester.pump();
+      // Enter text with a checkbox
+      await tester.enterText(find.byType(TextField), '[] Task Item');
+      await tester.pumpAndSettle();
 
-      // Check if callback was called
+      // First, verify that checkboxes are present in the preview
+      final previewFinder = find.byKey(Key('pendart_preview'));
+      expect(previewFinder, findsOneWidget);
+
+      // Use the Finder API to find the checkbox directly
+      final checkboxFinder = find.descendant(
+        of: previewFinder,
+        matching: find.byType(Checkbox),
+      );
+
+      expect(checkboxFinder, findsWidgets);
+
+      // Get the first checkbox and trigger its onChanged callback
+      final checkbox = tester.widget<Checkbox>(checkboxFinder.first);
+      checkbox.onChanged?.call(true);
+
+      // Verify the callback was triggered
       expect(changedIndex, isNotNull);
-      expect(changedValue, true);
+      expect(changedValue, isTrue);
     });
   });
 

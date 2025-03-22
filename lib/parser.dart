@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'utils.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Helper class for string building
 class StringBuilder {
@@ -676,15 +678,43 @@ class PendartParser {
           while (charIndex < text.length) {
             if (text[charIndex] == ' ') {
               // URL followed by text
-              token.attributes["href"] = url.toString();
+              String urlStr = url.toString();
+
+              // Ensure URL is a secure remote URL
+              var (isValid, errorMessage) = _validateUrlSecurity(urlStr);
+              if (isValid) {
+                token.attributes["href"] = urlStr;
+                if (errorMessage != null) {
+                  token.attributes["error"] = errorMessage;
+                }
+              } else {
+                // If not valid, don't set the href and add error message
+                token.attributes["error"] = errorMessage ?? "Invalid URL";
+              }
+
               token.text = ""; // Text will be collected separately
               charIndex++;
               break;
             } else if (charIndex + 1 < text.length &&
                 text.substring(charIndex).startsWith("@@")) {
               // URL only, no text
-              token.attributes["href"] = url.toString();
-              token.text = url.toString();
+              String urlStr = url.toString();
+
+              // Ensure URL is a secure remote URL
+              var (isValid, errorMessage) = _validateUrlSecurity(urlStr);
+              if (isValid) {
+                token.attributes["href"] = urlStr;
+                if (errorMessage != null) {
+                  token.attributes["error"] = errorMessage;
+                }
+                token.text = urlStr;
+              } else {
+                // If not valid, don't set the href and add error message
+                token.attributes["error"] = errorMessage ?? "Invalid URL";
+                token.text =
+                    urlStr; // Still show the text though it's not a link
+              }
+
               isInLink = false;
               charIndex += 2;
               break;
@@ -718,14 +748,32 @@ class PendartParser {
 
           // Parse image data (simplified - no size support)
           String imageStr = imageData.toString();
-          String src = imageStr;
+          String src = imageStr.trim();
 
-          // Remove any size specifications
-          if (src.contains(":")) {
-            src = src.split(":")[0];
+          // Remove any size specifications - but don't affect the protocol part (https:)
+          // Look for colons after the protocol part
+          final protocolEndsAt = src.indexOf("://");
+          if (protocolEndsAt != -1 &&
+              src.indexOf(":", protocolEndsAt + 3) != -1) {
+            // Found a colon after the protocol - treat as size specification
+            src = src.substring(0, src.indexOf(":", protocolEndsAt + 3));
+          } else if (!src.contains("://") && src.contains(":")) {
+            // No protocol but has colon - old behavior for backward compatibility
+            src = src.split(":")[0].trim();
           }
 
-          token.attributes["src"] = src;
+          // Ensure URL is a secure remote URL
+          var (isValid, errorMessage) = _validateUrlSecurity(src);
+          if (isValid) {
+            token.attributes["src"] = src;
+            if (errorMessage != null) {
+              token.attributes["error"] = errorMessage;
+            }
+          } else {
+            // If not valid, don't set the source and add error message
+            token.attributes["error"] = errorMessage ?? "Invalid URL";
+          }
+
           token.text = "";
         }
       }
@@ -781,26 +829,31 @@ class PendartParser {
 
   /// Process Pendart text into a widget tree
   List<Widget> processText(String text, BuildContext context,
-      {Function(int, bool)? onCheckboxChanged, bool enableCheckboxes = true}) {
-    // Preprocess the text to handle code blocks
-    String preprocessedText = getPreprocessedText(text);
+      {bool isDarkMode = false,
+      Function(int, bool)? onCheckboxChanged,
+      bool enableCheckboxes = true}) {
+    // Use isDarkMode to determine text/background colors and other styling
+    final themeColors = isDarkMode ? _DarkThemeColors() : _LightThemeColors();
 
-    // Get tokens from preprocessed text
+    // Get token array from the preprocessed text
+    String preprocessedText = getPreprocessedText(text);
     List<Token> tokenArray = getTokenArray(preprocessedText);
 
-    // Process tokens into widgets
-    return _buildWidgetsFromTokens(
-      tokenArray,
-      context,
-      onCheckboxChanged: onCheckboxChanged,
-      enableCheckboxes: enableCheckboxes,
-    );
+    // Build widgets from tokens, passing the theme colors
+    return _buildWidgetsFromTokens(tokenArray, context,
+        enableCheckboxes: enableCheckboxes,
+        onCheckboxChanged: onCheckboxChanged,
+        themeColors: themeColors);
   }
 
   /// Convert token array to Flutter widgets
   List<Widget> _buildWidgetsFromTokens(
       List<Token> tokenArray, BuildContext context,
-      {Function(int, bool)? onCheckboxChanged, bool enableCheckboxes = true}) {
+      {Function(int, bool)? onCheckboxChanged,
+      bool enableCheckboxes = true,
+      _ThemeColors? themeColors}) {
+    final colors =
+        themeColors ?? _LightThemeColors(); // Default to light if not provided
     List<Widget> widgets = [];
     List<InlineSpan> currentTextSpans = [];
     bool isParagraph = true;
@@ -816,11 +869,13 @@ class PendartParser {
       TokenType.link: false,
     };
 
-    void _addTextSpan() {
+    void addTextSpan() {
       if (currentTextSpans.isNotEmpty) {
         widgets.add(RichText(
           text: TextSpan(
-            style: DefaultTextStyle.of(context).style,
+            style: DefaultTextStyle.of(context).style.copyWith(
+                  color: colors.textColor,
+                ),
             children: List.from(currentTextSpans),
           ),
         ));
@@ -829,8 +884,8 @@ class PendartParser {
     }
 
     // Helper to get current style based on active formatting
-    TextStyle _getCurrentStyle(TextStyle baseStyle) {
-      TextStyle style = baseStyle;
+    TextStyle getCurrentStyle(TextStyle baseStyle) {
+      TextStyle style = baseStyle.copyWith(color: colors.textColor);
 
       if (formattingState[TokenType.bold] == true) {
         style = style.copyWith(fontWeight: FontWeight.bold);
@@ -868,7 +923,7 @@ class PendartParser {
 
       if (formattingState[TokenType.link] == true) {
         style = style.copyWith(
-          color: Colors.blue,
+          color: colors.accentColor,
           decoration: TextDecoration.underline,
         );
       }
@@ -880,80 +935,150 @@ class PendartParser {
       Token token = tokenArray[i];
       TextStyle baseStyle = DefaultTextStyle.of(context).style;
 
+      // Helper method to find the link URL for the current span
+      (String?, bool) findLinkUrlForSpan() {
+        if (formattingState[TokenType.link] == true) {
+          // Find the associated link token
+          int j = i - 1;
+          while (j >= 0) {
+            if (tokenArray[j].type == TokenType.link &&
+                tokenArray[j].text.isEmpty) {
+              return (
+                tokenArray[j].attributes["href"],
+                tokenArray[j].attributes.containsKey("error")
+              );
+            }
+            j--;
+          }
+        }
+        return (null, false);
+      }
+
       switch (token.type) {
         case TokenType.text:
           isParagraph = true;
-          currentTextSpans.add(TextSpan(
-            text: token.text,
-            style: _getCurrentStyle(baseStyle),
-          ));
+
+          // Get link URL if we're inside a link
+          var (linkUrl, linkHasError) = findLinkUrlForSpan();
+
+          if (formattingState[TokenType.link] == true &&
+              linkUrl != null &&
+              !linkHasError) {
+            // Text inside a link with valid URL - add tap recognizer
+            currentTextSpans.add(TextSpan(
+              text: token.text,
+              style: getCurrentStyle(baseStyle),
+              recognizer: TapGestureRecognizer()
+                ..onTap = () {
+                  final url = Uri.parse(linkUrl);
+                  launchUrl(url, mode: LaunchMode.externalApplication);
+                },
+            ));
+          } else {
+            // Regular text or link with error
+            currentTextSpans.add(TextSpan(
+              text: token.text,
+              style: getCurrentStyle(baseStyle),
+            ));
+          }
           break;
 
         case TokenType.space:
-          currentTextSpans.add(TextSpan(
-            text: token.text,
-            style: _getCurrentStyle(baseStyle),
-          ));
+          // Get link URL if we're inside a link
+          var (linkUrl, linkHasError) = findLinkUrlForSpan();
+
+          if (formattingState[TokenType.link] == true &&
+              linkUrl != null &&
+              !linkHasError) {
+            // Space inside a link with valid URL - add tap recognizer
+            currentTextSpans.add(TextSpan(
+              text: token.text,
+              style: getCurrentStyle(baseStyle),
+              recognizer: TapGestureRecognizer()
+                ..onTap = () {
+                  final url = Uri.parse(linkUrl);
+                  launchUrl(url, mode: LaunchMode.externalApplication);
+                },
+            ));
+          } else {
+            // Regular space or link with error
+            currentTextSpans.add(TextSpan(
+              text: token.text,
+              style: getCurrentStyle(baseStyle),
+            ));
+          }
           break;
 
         case TokenType.newline:
           if (isParagraph) {
-            _addTextSpan();
+            addTextSpan();
             widgets.add(const SizedBox(height: 2)); // Paragraph spacing
           }
           break;
 
         case TokenType.heading1:
-          _addTextSpan();
+          addTextSpan();
           isParagraph = false;
           widgets.add(Text(
             token.text,
-            style: Theme.of(context).textTheme.headlineLarge,
+            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                  color: colors.textColor,
+                ),
           ));
           break;
 
         case TokenType.heading2:
-          _addTextSpan();
+          addTextSpan();
           isParagraph = false;
           widgets.add(Text(
             token.text,
-            style: Theme.of(context).textTheme.headlineMedium,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: colors.textColor,
+                ),
           ));
           break;
 
         case TokenType.heading3:
-          _addTextSpan();
+          addTextSpan();
           isParagraph = false;
           widgets.add(Text(
             token.text,
-            style: Theme.of(context).textTheme.headlineSmall,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: colors.textColor,
+                ),
           ));
           break;
 
         case TokenType.heading4:
-          _addTextSpan();
+          addTextSpan();
           isParagraph = false;
           widgets.add(Text(
             token.text,
-            style: Theme.of(context).textTheme.titleLarge,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: colors.textColor,
+                ),
           ));
           break;
 
         case TokenType.heading5:
-          _addTextSpan();
+          addTextSpan();
           isParagraph = false;
           widgets.add(Text(
             token.text,
-            style: Theme.of(context).textTheme.titleMedium,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: colors.textColor,
+                ),
           ));
           break;
 
         case TokenType.heading6:
-          _addTextSpan();
+          addTextSpan();
           isParagraph = false;
           widgets.add(Text(
             token.text,
-            style: Theme.of(context).textTheme.titleSmall,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: colors.textColor,
+                ),
           ));
           break;
 
@@ -998,7 +1123,9 @@ class PendartParser {
             text: token.text,
             style: baseStyle.copyWith(
               fontFamily: 'monospace',
-              backgroundColor: const Color(0xFFEEEEEE),
+              backgroundColor:
+                  colors.isDarkMode ? Color(0xFF333333) : Color(0xFFEEEEEE),
+              color: colors.textColor,
             ),
           ));
           break;
@@ -1008,7 +1135,7 @@ class PendartParser {
           if (i + 1 < tokenArray.length &&
               tokenArray[i + 1].type != TokenType.codeBlock) {
             // Start of code block, collect all text until end marker
-            _addTextSpan();
+            addTextSpan();
             isParagraph = false;
 
             StringBuilder codeText = StringBuilder();
@@ -1023,12 +1150,13 @@ class PendartParser {
             widgets.add(Container(
               width: double.infinity,
               padding: const EdgeInsets.all(8.0),
-              color: Colors.grey[200],
+              color: colors.isDarkMode ? Color(0xFF333333) : Color(0xFFEEEEEE),
               child: Text(
                 codeText.toString(),
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 14,
+                  color: colors.textColor,
                 ),
               ),
             ));
@@ -1036,17 +1164,18 @@ class PendartParser {
           break;
 
         case TokenType.horizontalRule:
-          _addTextSpan();
-          widgets.add(Divider(color: Colors.grey[400]));
+          addTextSpan();
+          widgets.add(Divider(
+              color: colors.isDarkMode ? Colors.grey[600] : Colors.grey[400]));
           break;
 
         case TokenType.lineBreak:
-          _addTextSpan();
+          addTextSpan();
           widgets.add(const SizedBox(height: 8));
           break;
 
         case TokenType.checkbox:
-          _addTextSpan();
+          addTextSpan();
 
           bool isChecked = token.attributes["checked"] == "true";
 
@@ -1054,18 +1183,51 @@ class PendartParser {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Checkbox(
-                  value: isChecked,
-                  onChanged: enableCheckboxes && onCheckboxChanged != null
-                      ? (bool? newValue) {
-                          if (newValue != null) {
-                            onCheckboxChanged(i, newValue);
+                Theme(
+                  data: Theme.of(context).copyWith(
+                    checkboxTheme: CheckboxThemeData(
+                      fillColor: WidgetStateProperty.resolveWith<Color>(
+                        (Set<WidgetState> states) {
+                          if (states.contains(WidgetState.selected)) {
+                            return colors.accentColor;
                           }
-                        }
-                      : null, // Read-only checkbox if no callback
+                          return colors.isDarkMode
+                              ? Colors.grey[700]!
+                              : Colors.grey[300]!;
+                        },
+                      ),
+                      checkColor: WidgetStateProperty.all(
+                        colors.isDarkMode ? Colors.white : Colors.white,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      side: BorderSide(
+                        color: colors.isDarkMode
+                            ? Colors.grey[400]!
+                            : Colors.grey[600]!,
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                  child: Checkbox(
+                    value: isChecked,
+                    onChanged: enableCheckboxes && onCheckboxChanged != null
+                        ? (bool? newValue) {
+                            if (newValue != null) {
+                              onCheckboxChanged(i, newValue);
+                            }
+                          }
+                        : null, // Read-only checkbox if no callback
+                  ),
                 ),
                 Expanded(
-                  child: Text(token.text),
+                  child: Text(
+                    token.text,
+                    style: TextStyle(
+                      color: colors.textColor,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -1073,25 +1235,118 @@ class PendartParser {
           break;
 
         case TokenType.image:
-          _addTextSpan();
+          addTextSpan();
 
-          String src = token.attributes["src"] ?? "";
+          if (token.attributes.containsKey("src")) {
+            String src = token.attributes["src"]!;
 
-          widgets.add(Image.network(src));
+            // Skip if there's a security error
+            if (token.attributes.containsKey("error")) {
+              widgets.add(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.red),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.error, color: Colors.red),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              "Image not shown: ${token.attributes["error"]}",
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      src,
+                      style: TextStyle(
+                        color: colors.isDarkMode
+                            ? Colors.grey[400]
+                            : Colors.grey[600],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+              break;
+            }
+
+            // Process the image...
+            widgets.add(Image.network(src));
+          } else {
+            // Fallback for empty image
+            widgets.add(
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: colors.isDarkMode
+                        ? Colors.grey[700]!
+                        : Colors.grey[300]!,
+                  ),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.image_not_supported,
+                    color:
+                        colors.isDarkMode ? Colors.grey[600] : Colors.grey[400],
+                    size: 48,
+                  ),
+                ),
+              ),
+            );
+          }
           break;
 
         case TokenType.link:
           // Toggle link state or display self-closing link
           if (token.text.isNotEmpty) {
             // Self-closing link with text
-            currentTextSpans.add(TextSpan(
-              text: token.text,
-              style: baseStyle.copyWith(
-                color: Colors.blue,
-                decoration: TextDecoration.underline,
-              ),
-              // Add gesture recognizer here if needed
-            ));
+            if (token.attributes.containsKey("error")) {
+              // Show error state for unsafe links
+              currentTextSpans.add(TextSpan(
+                text: token.text,
+                style: baseStyle.copyWith(
+                  color: Colors.red,
+                  decoration: TextDecoration.lineThrough,
+                  decorationColor: Colors.red,
+                ),
+                children: [
+                  WidgetSpan(
+                    child: Tooltip(
+                      message: token.attributes["error"] ?? "Unsafe URL",
+                      child: Icon(Icons.error, color: Colors.red, size: 16),
+                    ),
+                  ),
+                ],
+              ));
+            } else {
+              // Normal link
+              currentTextSpans.add(TextSpan(
+                text: token.text,
+                style: baseStyle.copyWith(
+                  color: colors.accentColor,
+                  decoration: TextDecoration.underline,
+                ),
+                recognizer: TapGestureRecognizer()
+                  ..onTap = () {
+                    if (token.attributes.containsKey("href")) {
+                      final url = Uri.parse(token.attributes["href"]!);
+                      launchUrl(url, mode: LaunchMode.externalApplication);
+                    }
+                  },
+              ));
+            }
           } else {
             // Toggle link state
             formattingState[TokenType.link] =
@@ -1106,7 +1361,7 @@ class PendartParser {
       }
     }
 
-    _addTextSpan(); // Add any remaining text spans
+    addTextSpan(); // Add any remaining text spans
 
     return widgets;
   }
@@ -1119,4 +1374,65 @@ class PendartParser {
     }
     return buffer.toString();
   }
+
+  /// Validate a URL for security purposes
+  /// Returns a tuple: (isValid, errorMessage)
+  (bool, String?) _validateUrlSecurity(String url) {
+    // Check for HTTPS protocol
+    if (!url.startsWith("https://")) {
+      return (false, "Only secure (https) URLs are supported");
+    }
+
+    // Check for potentially malicious content
+    if (url.toLowerCase().contains('javascript:') ||
+        url.toLowerCase().contains('data:') ||
+        url.toLowerCase().contains('file:') ||
+        url.toLowerCase().contains('ftp:') ||
+        url.contains('onerror=') ||
+        url.contains('eval(')) {
+      return (
+        true,
+        "Potentially unsafe URL"
+      ); // URL is HTTPS but contains suspicious content
+    }
+
+    // Valid and safe URL
+    return (true, null);
+  }
+}
+
+// Theme color classes to manage different color schemes
+class _ThemeColors {
+  final Color textColor;
+  final Color backgroundColor;
+  final Color accentColor;
+  final bool isDarkMode;
+  // Add other colors as needed
+
+  const _ThemeColors({
+    required this.textColor,
+    required this.backgroundColor,
+    required this.accentColor,
+    required this.isDarkMode,
+  });
+}
+
+class _LightThemeColors extends _ThemeColors {
+  const _LightThemeColors()
+      : super(
+          textColor: Colors.black,
+          backgroundColor: Colors.white,
+          accentColor: Colors.blue,
+          isDarkMode: false,
+        );
+}
+
+class _DarkThemeColors extends _ThemeColors {
+  const _DarkThemeColors()
+      : super(
+          textColor: Colors.white,
+          backgroundColor: Colors.black87,
+          accentColor: Colors.lightBlue,
+          isDarkMode: true,
+        );
 }

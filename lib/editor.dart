@@ -9,6 +9,7 @@ class PendartEditor extends StatefulWidget {
   final double height;
   final double? width;
   final bool enableCheckboxes;
+  final bool isDarkMode;
 
   const PendartEditor({
     super.key,
@@ -18,6 +19,7 @@ class PendartEditor extends StatefulWidget {
     this.height = 400,
     this.width,
     this.enableCheckboxes = true,
+    this.isDarkMode = false,
   });
 
   @override
@@ -28,7 +30,7 @@ class _PendartEditorState extends State<PendartEditor> {
   late TextEditingController _textController;
   late PendartParser _parser;
   bool _isPreviewMode = false;
-  ScrollController _scrollController = ScrollController();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -84,15 +86,21 @@ class _PendartEditorState extends State<PendartEditor> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       decoration: BoxDecoration(
-        color: Colors.grey[200],
-        border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+        color: widget.isDarkMode ? Colors.grey[800] : Colors.grey[200],
+        border: Border(
+            bottom: BorderSide(
+          color: widget.isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
+        )),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
             IconButton(
-              icon: Icon(_isPreviewMode ? Icons.edit : Icons.visibility),
+              icon: Icon(
+                _isPreviewMode ? Icons.edit : Icons.visibility,
+                color: widget.isDarkMode ? Colors.white : null,
+              ),
               tooltip: _isPreviewMode ? 'Edit' : 'Preview',
               onPressed: () {
                 setState(() {
@@ -100,34 +108,53 @@ class _PendartEditorState extends State<PendartEditor> {
                 });
               },
             ),
-            const VerticalDivider(width: 16, thickness: 1),
+            VerticalDivider(
+              width: 16,
+              thickness: 1,
+              color: widget.isDarkMode ? Colors.grey[600] : Colors.grey[400],
+            ),
             IconButton(
-              icon: const Icon(Icons.format_bold),
+              icon: Icon(
+                Icons.format_bold,
+                color: widget.isDarkMode ? Colors.white : null,
+              ),
               tooltip: 'Bold',
               onPressed: () =>
                   _insertFormatting('**', '**', placeholder: 'bold text'),
             ),
             IconButton(
-              icon: const Icon(Icons.format_italic),
+              icon: Icon(
+                Icons.format_italic,
+                color: widget.isDarkMode ? Colors.white : null,
+              ),
               tooltip: 'Italic',
               onPressed: () =>
                   _insertFormatting('%%', '%%', placeholder: 'italic text'),
             ),
             IconButton(
-              icon: const Icon(Icons.format_strikethrough),
+              icon: Icon(
+                Icons.format_strikethrough,
+                color: widget.isDarkMode ? Colors.white : null,
+              ),
               tooltip: 'Strikethrough',
               onPressed: () => _insertFormatting('~~', '~~',
                   placeholder: 'strikethrough text'),
             ),
             IconButton(
-              icon: const Icon(Icons.format_underlined),
+              icon: Icon(
+                Icons.format_underlined,
+                color: widget.isDarkMode ? Colors.white : null,
+              ),
               tooltip: 'Underline',
               onPressed: () =>
                   _insertFormatting('__', '__', placeholder: 'underlined text'),
             ),
             IconButton(
-              icon: const Text('H1',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              icon: Text('H1',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: widget.isDarkMode ? Colors.white : null,
+                  )),
               tooltip: 'Heading 1',
               onPressed: () {
                 final value = _textController.value;
@@ -163,8 +190,11 @@ class _PendartEditorState extends State<PendartEditor> {
               },
             ),
             IconButton(
-              icon: const Text('H2',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              icon: Text('H2',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: widget.isDarkMode ? Colors.white : null,
+                  )),
               tooltip: 'Heading 2',
               onPressed: () {
                 final value = _textController.value;
@@ -200,24 +230,36 @@ class _PendartEditorState extends State<PendartEditor> {
               },
             ),
             IconButton(
-              icon: const Icon(Icons.code),
+              icon: Icon(
+                Icons.code,
+                color: widget.isDarkMode ? Colors.white : null,
+              ),
               tooltip: 'Code',
               onPressed: () => _insertFormatting('`', '`', placeholder: 'code'),
             ),
             IconButton(
-              icon: const Icon(Icons.insert_link),
+              icon: Icon(
+                Icons.insert_link,
+                color: widget.isDarkMode ? Colors.white : null,
+              ),
               tooltip: 'Link',
               onPressed: () => _insertFormatting('@@', '@@',
                   placeholder: 'https://example.com'),
             ),
             IconButton(
-              icon: const Icon(Icons.image),
+              icon: Icon(
+                Icons.image,
+                color: widget.isDarkMode ? Colors.white : null,
+              ),
               tooltip: 'Image',
               onPressed: () =>
                   _insertFormatting('[[', ']]', placeholder: 'image.jpg'),
             ),
             IconButton(
-              icon: const Icon(Icons.check_box_outline_blank),
+              icon: Icon(
+                Icons.check_box_outline_blank,
+                color: widget.isDarkMode ? Colors.white : null,
+              ),
               tooltip: 'Unchecked Checkbox',
               onPressed: () {
                 final value = _textController.value;
@@ -231,7 +273,10 @@ class _PendartEditorState extends State<PendartEditor> {
               },
             ),
             IconButton(
-              icon: const Icon(Icons.check_box),
+              icon: Icon(
+                Icons.check_box,
+                color: widget.isDarkMode ? Colors.white : null,
+              ),
               tooltip: 'Checked Checkbox',
               onPressed: () {
                 final value = _textController.value;
@@ -245,7 +290,10 @@ class _PendartEditorState extends State<PendartEditor> {
               },
             ),
             IconButton(
-              icon: const Icon(Icons.horizontal_rule),
+              icon: Icon(
+                Icons.horizontal_rule,
+                color: widget.isDarkMode ? Colors.white : null,
+              ),
               tooltip: 'Horizontal Rule',
               onPressed: () => _insertFormatting('---\n', '', placeholder: ''),
             ),
@@ -261,8 +309,10 @@ class _PendartEditorState extends State<PendartEditor> {
       width: widget.width,
       height: widget.height,
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
+        border: Border.all(
+            color: widget.isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
         borderRadius: BorderRadius.circular(4.0),
+        color: widget.isDarkMode ? Colors.grey[850] : Colors.white,
       ),
       child: Column(
         children: [
@@ -277,6 +327,7 @@ class _PendartEditorState extends State<PendartEditor> {
                       children: _parser.processText(
                         _textController.text,
                         context,
+                        isDarkMode: widget.isDarkMode,
                         onCheckboxChanged: widget.onCheckboxChanged != null
                             ? _handleCheckboxChange
                             : null,
@@ -288,14 +339,23 @@ class _PendartEditorState extends State<PendartEditor> {
                     controller: _textController,
                     maxLines: null,
                     expands: true,
-                    decoration: const InputDecoration(
-                      contentPadding: EdgeInsets.all(16.0),
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.all(16.0),
                       border: InputBorder.none,
                       hintText: 'Write your Pendart text here...',
+                      hintStyle: TextStyle(
+                        color: widget.isDarkMode
+                            ? Colors.grey[400]
+                            : Colors.grey[600],
+                      ),
+                      fillColor:
+                          widget.isDarkMode ? Colors.grey[850] : Colors.white,
+                      filled: true,
                     ),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'monospace',
                       fontSize: 14,
+                      color: widget.isDarkMode ? Colors.white : Colors.black,
                     ),
                     onChanged: widget.onTextChanged,
                   ),

@@ -1,6 +1,6 @@
 name: pendart
 description: A Flutter package for editing and rendering Pendart markup - a lightweight markup language directly converted to Flutter widgets without HTML intermediary
-version: 0.1.0
+version: 0.2.0
 homepage: https://github.com/rp01/pendart
 
 environment:
@@ -10,6 +10,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  url_launcher: ^6.2.4
 
 dev_dependencies:
   flutter_test:

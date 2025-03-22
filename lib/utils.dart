@@ -424,29 +424,3 @@ Language getLanguage(String filePath, String fileExtension) {
     return Language();
   }
 }
-
-// Add token parsing and processing functions
-// ...
-
-// -- PENDOWN FLUTTER WIDGETS
-
-/// Widget to render Pendown content
-class PendownText extends StatelessWidget {
-  final String text;
-  final TextStyle? style;
-
-  const PendownText(this.text, {Key? key, this.style}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    // Process the Pendown markup and generate a widget tree
-    // This is where we'll convert the markup to a set of Flutter widgets
-    return _buildWidgetTree(context);
-  }
-
-  Widget _buildWidgetTree(BuildContext context) {
-    // Process the text and generate widgets
-    // TODO: Implement the actual widget generation logic
-    return Text("Pendown renderer not fully implemented yet");
-  }
-}
