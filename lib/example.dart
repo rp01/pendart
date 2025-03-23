@@ -109,7 +109,6 @@ That's all for now!
                   PendartEditor(
                     initialText: pendartText,
                     height: 400,
-                    isDarkMode: isDarkMode,
                     onTextChanged: (text) {
                       setState(() {
                         pendartText = text;
@@ -143,7 +142,6 @@ That's all for now!
                     ),
                     child: PendartView(
                       text: pendartText,
-                      isDarkMode: isDarkMode,
                     ),
                   ),
                 ],

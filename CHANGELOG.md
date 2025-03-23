@@ -1,3 +1,12 @@
+## 0.3.0
+
+* Added support for consumer ThemeData in editor and preview components
+* Improved theming with automatic dark/light mode detection based on parent theme
+* Replaced hardcoded isDarkMode flag with intelligent theme detection
+* Enhanced accessibility by using theme colors for text, backgrounds and icons
+* Updated example app to demonstrate theme switching functionality
+* Fixed text field styling to properly use theme-appropriate colors
+
 ## 0.2.0
 
 * Added support for secure URL validation for links and images

@@ -5,22 +5,39 @@ import 'parser.dart';
 class PendartView extends StatelessWidget {
   final String text;
   final TextStyle? defaultTextStyle;
-  final bool isDarkMode;
+  final ThemeData? theme;
 
   const PendartView({
     super.key,
     required this.text,
     this.defaultTextStyle,
-    this.isDarkMode = false,
+    this.theme,
   });
+
+  /// Get the current theme to use (either provided or from context)
+  ThemeData _getCurrentTheme(BuildContext context) {
+    return theme ?? Theme.of(context);
+  }
+
+  /// Check if the current theme is dark mode
+  bool _isDarkMode(BuildContext context) {
+    final currentTheme = _getCurrentTheme(context);
+    return currentTheme.brightness == Brightness.dark;
+  }
 
   @override
   Widget build(BuildContext context) {
     final parser = PendartParser();
-    final widgets = parser.processText(text, context, isDarkMode: isDarkMode);
+    final isDark = _isDarkMode(context);
+    final currentTheme = _getCurrentTheme(context);
+    final backgroundColor = isDark
+        ? currentTheme.canvasColor
+        : currentTheme.scaffoldBackgroundColor;
+
+    final widgets = parser.processText(text, context, isDarkMode: isDark);
 
     return Container(
-      color: isDarkMode ? Colors.black87 : Colors.white,
+      color: backgroundColor,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,

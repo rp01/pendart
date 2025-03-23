@@ -9,7 +9,7 @@ class PendartEditor extends StatefulWidget {
   final double height;
   final double? width;
   final bool enableCheckboxes;
-  final bool isDarkMode;
+  final ThemeData? theme;
 
   const PendartEditor({
     super.key,
@@ -19,7 +19,7 @@ class PendartEditor extends StatefulWidget {
     this.height = 400,
     this.width,
     this.enableCheckboxes = true,
-    this.isDarkMode = false,
+    this.theme,
   });
 
   @override
@@ -44,6 +44,17 @@ class _PendartEditorState extends State<PendartEditor> {
     _textController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Get the current theme to use, falling back to the context theme if not provided
+  ThemeData _getCurrentTheme(BuildContext context) {
+    return widget.theme ?? Theme.of(context);
+  }
+
+  /// Check if the current theme is dark
+  bool _isDarkMode(BuildContext context) {
+    final ThemeData theme = _getCurrentTheme(context);
+    return theme.brightness == Brightness.dark;
   }
 
   void _insertFormatting(String prefix, String suffix,
@@ -83,13 +94,19 @@ class _PendartEditorState extends State<PendartEditor> {
   }
 
   Widget _buildToolbar() {
+    final ThemeData theme = _getCurrentTheme(context);
+    final bool isDark = _isDarkMode(context);
+    final Color iconColor =
+        isDark ? Colors.white : theme.iconTheme.color ?? Colors.black87;
+    final Color dividerColor = theme.dividerColor;
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       decoration: BoxDecoration(
-        color: widget.isDarkMode ? Colors.grey[800] : Colors.grey[200],
+        color: isDark ? theme.cardColor : theme.scaffoldBackgroundColor,
         border: Border(
             bottom: BorderSide(
-          color: widget.isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
+          color: dividerColor,
         )),
       ),
       child: SingleChildScrollView(
@@ -99,7 +116,7 @@ class _PendartEditorState extends State<PendartEditor> {
             IconButton(
               icon: Icon(
                 _isPreviewMode ? Icons.edit : Icons.visibility,
-                color: widget.isDarkMode ? Colors.white : null,
+                color: iconColor,
               ),
               tooltip: _isPreviewMode ? 'Edit' : 'Preview',
               onPressed: () {
@@ -111,12 +128,12 @@ class _PendartEditorState extends State<PendartEditor> {
             VerticalDivider(
               width: 16,
               thickness: 1,
-              color: widget.isDarkMode ? Colors.grey[600] : Colors.grey[400],
+              color: dividerColor,
             ),
             IconButton(
               icon: Icon(
                 Icons.format_bold,
-                color: widget.isDarkMode ? Colors.white : null,
+                color: iconColor,
               ),
               tooltip: 'Bold',
               onPressed: () =>
@@ -125,7 +142,7 @@ class _PendartEditorState extends State<PendartEditor> {
             IconButton(
               icon: Icon(
                 Icons.format_italic,
-                color: widget.isDarkMode ? Colors.white : null,
+                color: iconColor,
               ),
               tooltip: 'Italic',
               onPressed: () =>
@@ -134,7 +151,7 @@ class _PendartEditorState extends State<PendartEditor> {
             IconButton(
               icon: Icon(
                 Icons.format_strikethrough,
-                color: widget.isDarkMode ? Colors.white : null,
+                color: iconColor,
               ),
               tooltip: 'Strikethrough',
               onPressed: () => _insertFormatting('~~', '~~',
@@ -143,7 +160,7 @@ class _PendartEditorState extends State<PendartEditor> {
             IconButton(
               icon: Icon(
                 Icons.format_underlined,
-                color: widget.isDarkMode ? Colors.white : null,
+                color: iconColor,
               ),
               tooltip: 'Underline',
               onPressed: () =>
@@ -153,7 +170,7 @@ class _PendartEditorState extends State<PendartEditor> {
               icon: Text('H1',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: widget.isDarkMode ? Colors.white : null,
+                    color: iconColor,
                   )),
               tooltip: 'Heading 1',
               onPressed: () {
@@ -193,7 +210,7 @@ class _PendartEditorState extends State<PendartEditor> {
               icon: Text('H2',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: widget.isDarkMode ? Colors.white : null,
+                    color: iconColor,
                   )),
               tooltip: 'Heading 2',
               onPressed: () {
@@ -232,7 +249,7 @@ class _PendartEditorState extends State<PendartEditor> {
             IconButton(
               icon: Icon(
                 Icons.code,
-                color: widget.isDarkMode ? Colors.white : null,
+                color: iconColor,
               ),
               tooltip: 'Code',
               onPressed: () => _insertFormatting('`', '`', placeholder: 'code'),
@@ -240,7 +257,7 @@ class _PendartEditorState extends State<PendartEditor> {
             IconButton(
               icon: Icon(
                 Icons.insert_link,
-                color: widget.isDarkMode ? Colors.white : null,
+                color: iconColor,
               ),
               tooltip: 'Link',
               onPressed: () => _insertFormatting('@@', '@@',
@@ -249,7 +266,7 @@ class _PendartEditorState extends State<PendartEditor> {
             IconButton(
               icon: Icon(
                 Icons.image,
-                color: widget.isDarkMode ? Colors.white : null,
+                color: iconColor,
               ),
               tooltip: 'Image',
               onPressed: () =>
@@ -258,7 +275,7 @@ class _PendartEditorState extends State<PendartEditor> {
             IconButton(
               icon: Icon(
                 Icons.check_box_outline_blank,
-                color: widget.isDarkMode ? Colors.white : null,
+                color: iconColor,
               ),
               tooltip: 'Unchecked Checkbox',
               onPressed: () {
@@ -275,7 +292,7 @@ class _PendartEditorState extends State<PendartEditor> {
             IconButton(
               icon: Icon(
                 Icons.check_box,
-                color: widget.isDarkMode ? Colors.white : null,
+                color: iconColor,
               ),
               tooltip: 'Checked Checkbox',
               onPressed: () {
@@ -292,7 +309,7 @@ class _PendartEditorState extends State<PendartEditor> {
             IconButton(
               icon: Icon(
                 Icons.horizontal_rule,
-                color: widget.isDarkMode ? Colors.white : null,
+                color: iconColor,
               ),
               tooltip: 'Horizontal Rule',
               onPressed: () => _insertFormatting('---\n', '', placeholder: ''),
@@ -305,14 +322,22 @@ class _PendartEditorState extends State<PendartEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final ThemeData theme = _getCurrentTheme(context);
+    final bool isDark = _isDarkMode(context);
+    final Color borderColor = theme.dividerColor;
+    final Color backgroundColor =
+        isDark ? theme.cardColor : theme.scaffoldBackgroundColor;
+    final Color textColor = theme.textTheme.bodyMedium?.color ??
+        (isDark ? Colors.white : Colors.black);
+    final Color hintColor = theme.hintColor;
+
     return Container(
       width: widget.width,
       height: widget.height,
       decoration: BoxDecoration(
-        border: Border.all(
-            color: widget.isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
+        border: Border.all(color: borderColor),
         borderRadius: BorderRadius.circular(4.0),
-        color: widget.isDarkMode ? Colors.grey[850] : Colors.white,
+        color: backgroundColor,
       ),
       child: Column(
         children: [
@@ -320,14 +345,17 @@ class _PendartEditorState extends State<PendartEditor> {
           Expanded(
             child: _isPreviewMode
                 ? SingleChildScrollView(
+                    key: const Key('pendart_preview'),
                     controller: _scrollController,
-                    padding: const EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0, vertical: 8.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
                       children: _parser.processText(
                         _textController.text,
                         context,
-                        isDarkMode: widget.isDarkMode,
+                        isDarkMode: isDark,
                         onCheckboxChanged: widget.onCheckboxChanged != null
                             ? _handleCheckboxChange
                             : null,
@@ -343,19 +371,14 @@ class _PendartEditorState extends State<PendartEditor> {
                       contentPadding: const EdgeInsets.all(16.0),
                       border: InputBorder.none,
                       hintText: 'Write your Pendart text here...',
-                      hintStyle: TextStyle(
-                        color: widget.isDarkMode
-                            ? Colors.grey[400]
-                            : Colors.grey[600],
-                      ),
-                      fillColor:
-                          widget.isDarkMode ? Colors.grey[850] : Colors.white,
+                      hintStyle: TextStyle(color: hintColor),
+                      fillColor: backgroundColor,
                       filled: true,
                     ),
                     style: TextStyle(
                       fontFamily: 'monospace',
                       fontSize: 14,
-                      color: widget.isDarkMode ? Colors.white : Colors.black,
+                      color: textColor,
                     ),
                     onChanged: widget.onTextChanged,
                   ),

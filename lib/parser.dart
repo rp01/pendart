@@ -1181,35 +1181,12 @@ class PendartParser {
 
           widgets.add(
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Theme(
-                  data: Theme.of(context).copyWith(
-                    checkboxTheme: CheckboxThemeData(
-                      fillColor: WidgetStateProperty.resolveWith<Color>(
-                        (Set<WidgetState> states) {
-                          if (states.contains(WidgetState.selected)) {
-                            return colors.accentColor;
-                          }
-                          return colors.isDarkMode
-                              ? Colors.grey[700]!
-                              : Colors.grey[300]!;
-                        },
-                      ),
-                      checkColor: WidgetStateProperty.all(
-                        colors.isDarkMode ? Colors.white : Colors.white,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      side: BorderSide(
-                        color: colors.isDarkMode
-                            ? Colors.grey[400]!
-                            : Colors.grey[600]!,
-                        width: 1.5,
-                      ),
-                    ),
-                  ),
+                SizedBox(
+                  width: 24,
+                  height: 24,
                   child: Checkbox(
                     value: isChecked,
                     onChanged: enableCheckboxes && onCheckboxChanged != null
@@ -1218,14 +1195,17 @@ class PendartParser {
                               onCheckboxChanged(i, newValue);
                             }
                           }
-                        : null, // Read-only checkbox if no callback
+                        : null,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ),
-                Expanded(
-                  child: Text(
-                    token.text,
-                    style: TextStyle(
-                      color: colors.textColor,
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 3.0),
+                    child: Text(
+                      token.text,
+                      style: getCurrentStyle(baseStyle),
                     ),
                   ),
                 ),

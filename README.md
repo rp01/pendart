@@ -68,38 +68,76 @@ Pendart uses a simple markup language:
 | ````code```` | `Inline code` |
 | `:::` and `:::` | Code block |
 
-## Dark Mode Support
+## Theme Support
 
-Both `PendartView` and `PendartEditor` support dark mode through the `isDarkMode` property. When enabled, the widgets will use a dark color scheme for better visibility in dark environments.
+As of version 0.3.0, Pendart has improved theme support that integrates with your app's theme:
 
-Example with theme switching:
+### Using System Theme
+
+Both `PendartView` and `PendartEditor` can automatically use your app's theme:
 
 ```dart
-bool isDarkMode = false;
+import 'package:pendart/preview.dart';
+import 'package:pendart/editor.dart';
 
-// ... in your build method:
+// The widgets will automatically use your app's ThemeData
+PendartView(
+  text: "This text respects your app's theme",
+)
+
 PendartEditor(
-  initialText: "Dark mode example", 
-  isDarkMode: isDarkMode,
-  onTextChanged: (text) {
-    // Handle text changes
-  },
-),
+  initialText: "# Start typing here",
+  height: 400,
+)
+```
 
-// Toggle dark mode
-FloatingActionButton(
-  onPressed: () {
-    setState(() {
-      isDarkMode = !isDarkMode;
-    });
-  },
-  child: Icon(isDarkMode ? Icons.light_mode : Icons.dark_mode),
+### Custom Theme
+
+You can also provide a custom theme:
+
+```dart
+// For light theme
+final lightTheme = ThemeData(
+  brightness: Brightness.light,
+  primarySwatch: Colors.blue,
+  // other properties...
+);
+
+// For dark theme
+final darkTheme = ThemeData(
+  brightness: Brightness.dark,
+  primaryColor: Colors.blueAccent,
+  // other properties...
+);
+
+// Pass the theme directly to the widgets
+PendartEditor(
+  initialText: "# Custom themed editor",
+  theme: isDarkMode ? darkTheme : lightTheme,
+)
+```
+
+### Deprecated Properties
+
+The `isDarkMode` property is deprecated in favor of using ThemeData:
+
+```dart
+// Old way (still supported but deprecated)
+PendartEditor(
+  initialText: "Text",
+  isDarkMode: true, // Deprecated
+)
+
+// New way
+PendartEditor(
+  initialText: "Text",
+  // No need to set isDarkMode, it will use your app's theme
 )
 ```
 
 ## Example
 
-Check out the `example.dart` file for a complete example of how to use Pendart with dark mode support.
+Check out the `example` folder for a complete example of how to use Pendart with theme switching.
 
 ## License
 
